@@ -12,7 +12,7 @@ from ytmusicapi import YTMusic
 
 yt = YTMusic()
 
-ver = "b0.1"
+ver = "b0.2"
 
 temp_dir = ".yta-dlp-temp"
 
@@ -57,7 +57,7 @@ def toValidFileName(input: str):
 
 def help_message():
     print('''
-Welcome to yta-dlp beta 0.1!
+Welcome to yta-dlp beta 0.2!
     
 To run, you can simply execute `python3 yta-dlp.py`.
 
