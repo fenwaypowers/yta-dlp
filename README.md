@@ -23,7 +23,7 @@ You must supply a playlist link to an album from youtube music.
 Example Use:
 `python3 yta-dlp.py https://music.youtube.com/playlist?list=OLAK5uy_n0vSV9smWbw8O4q_rHkjWWoE5yshlPJU4`
 
-## How it works
+## How It Works
 * yt-dlp downloads the album in a temporary folder in opus format.
 * Each file is searched in ytmusicapi from its youtube id.
 * If metadata is found, it is applied to the file.
@@ -33,7 +33,7 @@ Example Use:
 * If there are 2 artists on the album, they will both appear in the `album_artist` field.
 * If there are more than 2 artists on the album, the `album_artist` field will be set to "Various Artists".
 
-## Known errors
+## Known Errors
 * For songs that have no metadata available, their `artist` field will automatically be set to whatever the `album_artist` field is. Yes, this means that albums with "Various Artists" as the `album_artist` could potentially have songs with "Various Artists" as their `artist` field. Just the way it is, unfortunately. you can always edit the metadata with a tool such as [mp3tag](https://www.mp3tag.de/en/).
 * If you get this error : `mutagen.ogg.error: read b'\xff\xd8\xff\xe0', expected b'OggS', at 0x0`, just try again.
 * Obviously if you put in anything other than a playlist link to an album, you will get wonky results. This was made for albums, not playlists.
