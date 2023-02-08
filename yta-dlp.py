@@ -23,6 +23,16 @@ if (os.path.isdir(temp_dir)):
 if (os.path.isdir(temp_dir)) == False:
     os.mkdir(temp_dir)
 
+def title_from_filename(instr:str):
+    return_string = ""
+    insplit = instr.split(". ")
+    for i in range(1, len(insplit)):
+        if i < 1:
+            return_string += insplit[i]
+        else:
+            return_string += ". " + insplit[i]
+    return return_string.split("[")[0]
+
 
 def sys_exit():
     for file in os.listdir(temp_dir):
@@ -125,7 +135,7 @@ for i in os.listdir(folder):
             if old_data != []:
                 print("Working around this by using the previous song's metadata.")
                 data = old_data
-                data[0]["title"] = i.split(". ")[1].split(" [")[0]
+                data[0]["title"] = title_from_filename(i)
             else:
                 print("Song with id " +
                         i[-17:-6] + " will not have metadata generated right now. Sorry about that...\nWill try to retrieve metadata for it later.")
@@ -193,7 +203,7 @@ for j in os.listdir(destination):
             date_list.append(fileopen["date"][0])
 
     if "title" not in fileopen:
-        song_name = j.split(". ")[1].split(" [")[0]
+        song_name = title_from_filename(j)
         fileopen["title"] = song_name
     
     if "artist" not in fileopen:
