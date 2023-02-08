@@ -9,6 +9,8 @@ This was made for albums, not playlists.
 ## Prerequisites
 * [Python 3](https://www.python.org/)
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+* [requests](https://pypi.org/project/requests/)
+* [validators](https://pypi.org/project/validators/)
 * [mutagen](https://pypi.org/project/mutagen/)
 * [html.parser](https://docs.python.org/3/library/html.parser.html#module-html.parser)
 * [ytmusicapi](https://ytmusicapi.readthedocs.io/en/stable/)
