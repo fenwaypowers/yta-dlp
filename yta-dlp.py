@@ -12,7 +12,7 @@ from ytmusicapi import YTMusic
 
 yt = YTMusic()
 
-ver = "b0.2"
+ver = "b0.3"
 
 temp_dir = ".yta-dlp-temp"
 
@@ -27,7 +27,7 @@ def title_from_filename(instr:str):
     return_string = ""
     insplit = instr.split(". ")
     for i in range(1, len(insplit)):
-        if i < 1:
+        if i < 2:
             return_string += insplit[i]
         else:
             return_string += ". " + insplit[i]
@@ -57,7 +57,7 @@ def toValidFileName(input: str):
 
 def help_message():
     print('''
-Welcome to yta-dlp beta 0.2!
+Welcome to yta-dlp beta 0.3!
     
 To run, you can simply execute `python3 yta-dlp.py`.
 
