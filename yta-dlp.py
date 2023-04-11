@@ -1,4 +1,9 @@
+import subprocess
+import os
 from mutagen.oggopus import OggOpus
+from mutagen.flac import Picture
+from mutagen.aac import AAC
+from mutagen import File
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, ID3NoHeaderError
 from html.parser import HTMLParser
@@ -6,6 +11,9 @@ from html.entities import name2codepoint
 from ytmusicapi import YTMusic
 import validators
 import yt_dlp
+
+from pydub import AudioSegment
+
 
 import urllib.request
 import os, shutil, argparse, logging, sys, subprocess, requests
@@ -18,6 +26,7 @@ def main():
     global link
     global temp_dir
     global yt
+    global format
 
     yt = YTMusic()
 
@@ -29,18 +38,11 @@ def main():
         '--manual', help='Input the metadata for the album manually. Not implemented', action='store_true')
     parser.add_argument(
         '--resume', help='If there was a previous error, but your content was downloaded, you can resume the metadata process. Not implemented.', action='store_true')
-    parser.add_argument('-f', '--format', help='Audio format to be downloaded. Options: [opus, aac].', default="m4a", choices=[
-                        "opus", "ogg", "aac", "m4a", "mp4", "webm"])
 
     args = parser.parse_args()
 
-    #print(args.link)
-    #print(args.manual)
-
     link = args.link
-    format = args.format
-
-    #validated, mode, link = validate_link(link)
+    format = "opus"
     
     if (os.path.isdir(temp_dir)) == False:
         os.mkdir(temp_dir)
@@ -51,11 +53,17 @@ def main():
 
     album_metadata = get_album_metadata(album_data)
 
+    with open("album_metadata.txt", "w") as myfile:
+        myfile.write(str(album_metadata))
+
     link = album_metadata['audioPlaylistId']
+
 
     print(link)
 
     download(link, format)
+
+    apply_metadata(album_metadata)
 
     '''
     album_list, metadata_dict = fetch_metadata()
@@ -68,34 +76,46 @@ def main():
     '''
 
 def search_album():
-    search_term = input("Search: ")
+    while(True):
+        search_term = input("Search (q to exit): ")
 
-    search = yt.search(search_term)
+        if search_term == "q":
+            sys_exit(0)
 
-    albums_list = []
-    album_data_list = []
+        search = yt.search(search_term, filter="albums", limit=10)
 
-    for i in search:
-        if i["resultType"] == "album" and (i["category"] == "Albums" or i["category"] == "Top result"):
+        albums_list = []
+        album_data_list = []
 
-            temp_album = "album unknown"
-            temp_artist = "artist unknown"
-            temp_year = "year unknown"
-            
-            try:
-                temp_album = i['title']
-                temp_artist = i["artists"][0]["name"]
-                temp_year = i['year']
+        for i in search:
+            if i["resultType"] == "album" and (i["category"] == "Albums" or i["category"] == "Top result"):
 
-            except:
-                pass
-            
-            albums_list.append(f'{temp_album}, {temp_artist}, {temp_year}')
-            album_data_list.append(i)
-    
-    album_selected = select(albums_list, "Albums")
+                temp_album = "album unknown"
+                temp_artist = "artist unknown"
+                temp_type = "Album"
+                temp_year = "year unknown"
+                
+                try:
+                    temp_album = i['title']
+                    temp_type = i["artists"][0]["name"]
+                    temp_artist = i["artists"][1]["name"]
+                    temp_year = i['year']
+
+                except:
+                    pass
+                
+                albums_list.append(f'{temp_album} [{temp_type}], {temp_artist}, {temp_year}')
+                album_data_list.append(i)
+
+        album_selected = select(albums_list, "Albums")
+
+        if album_selected != "q":
+            break
 
     album_data = album_data_list[album_selected]
+
+    with open("test_data2.txt", "w") as myfile:
+        myfile.write(str(album_data))
 
     return album_data
 
@@ -157,6 +177,43 @@ def download(url : str, format : str):
     except:
         sys_exit(1)
 
+def apply_metadata(album_metadata):
+    tracks = album_metadata['tracks']
+
+    for i in range(0, len(tracks)):
+
+        file_startswith_val = str(i+1) + "."
+
+        for file in os.listdir(temp_dir):
+            if file.startswith(file_startswith_val) or file.startswith("0" + file_startswith_val):
+                if format == "aac":
+                    f = AAC(temp_dir + "/" + file)
+                else:
+                    f = OggOpus(temp_dir + "/" + file)
+
+                f["title"] = tracks[i]['title']
+                f["album"] = tracks[i]['album']
+                f["artist"] = artists_name(tracks[i]['artists'], purpose="song")
+                f["tracknumber"] = str(i + 1)
+                f["albumartist"] = artists_name(tracks[i]['artists'])
+                f["date"] = album_metadata['year']
+                f.save()
+
+def artists_name(input_artists: list, purpose="album"):
+    if len(input_artists) == 1:
+        return input_artists[0]['name']
+
+    if purpose == "album":
+        if len(input_artists) > 2:
+            return "Various Artists"
+        else:
+            return input_artists[0]['name'] + ", " + input_artists[1]['name']
+    else:
+        names = []
+        for artist in input_artists:
+            names.append(artist['name'])
+        return ", ".join(names[:-1]) + " & " + names[-1]
+
 def fetch_metadata():
 
     metadata_dict = {}
@@ -205,11 +262,17 @@ def select(inputlist : list, selectiontype: str):
         print(f"[{j + 1}] {name}")
 
     while (True):
-        selection = input(f"Make a selection of {selectiontype} [1-{len(inputlist)}]: ")
+        selection = input(f"Make a selection of {selectiontype} [1-{len(inputlist)}] (q to exit): ")
 
         if selection.isdigit():
             if int(selection) in range(1, len(inputlist) + 1):
                 break
+        
+        if selection == "q":
+            break
+
+    if selection == "q":
+        return selection
 
     selection = int(selection) - 1
 
@@ -250,36 +313,6 @@ def gather_global_data(album_name: str, metadata_dict: dict):
     return {"album_name" : album_name,
             "album_year" : year,
             "album_artist" : artist}
-
-def apply_metadata(metadata_dict):
-    pass
-
-def parse_id(filename: str):
-    return filename.split("[")[1].split("]")[0]
-
-def validate_link(link: str):
-    testlink = ""
-
-    if "http://" in link:
-        testlink += "https://" + link[7:]
-    elif "https://" not in link:
-        testlink += "https://" + link
-    else:
-        testlink += link
-
-    if "playlist" in link:
-        mode = "album"
-    else:
-        mode = "song"
-
-    if validators.url(testlink) and "youtu" in testlink:
-        if "&feature=share" in testlink:
-            testlink = testlink.split("&feature=share")[0]
-        link = testlink
-    else:
-        return False, mode, link
-
-    return True, mode, link
 
 def sys_exit(code: int):
     '''
