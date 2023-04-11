@@ -1,16 +1,300 @@
-import requests
-import subprocess
-import validators
-import sys
-import os, shutil
 from mutagen.oggopus import OggOpus
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, ID3NoHeaderError
 from html.parser import HTMLParser
 from html.entities import name2codepoint
 from ytmusicapi import YTMusic
+import validators
+import yt_dlp
 
-yt = YTMusic()
+import urllib.request
+import os, shutil, argparse, logging, sys, subprocess, requests
+from zipfile import ZipFile
+
+logging.basicConfig(format='%(message)s', stream=sys.stdout, level=logging.INFO)
+
+def main():
+    global mode
+    global link
+    global temp_dir
+    global yt
+
+    yt = YTMusic()
+
+    temp_dir = "yta-dlp-temp"
+    
+    parser = argparse.ArgumentParser(description='Download Albums from Youtube with metadata.')
+    parser.add_argument('--link', help='Youtube Music link for an album or a song.', default=None)
+    parser.add_argument(
+        '--manual', help='Input the metadata for the album manually. Not implemented', action='store_true')
+    parser.add_argument(
+        '--resume', help='If there was a previous error, but your content was downloaded, you can resume the metadata process. Not implemented.', action='store_true')
+    parser.add_argument('-f', '--format', help='Audio format to be downloaded. Options: [opus, aac].', default="m4a", choices=[
+                        "opus", "ogg", "aac", "m4a", "mp4", "webm"])
+
+    args = parser.parse_args()
+
+    #print(args.link)
+    #print(args.manual)
+
+    link = args.link
+    format = args.format
+
+    #validated, mode, link = validate_link(link)
+    
+    if (os.path.isdir(temp_dir)) == False:
+        os.mkdir(temp_dir)
+
+    album_data = search_album()
+
+    download_cover(album_data)
+
+    album_metadata = get_album_metadata(album_data)
+
+    link = album_metadata['audioPlaylistId']
+
+    print(link)
+
+    download(link, format)
+
+    '''
+    album_list, metadata_dict = fetch_metadata()
+
+    album_name = choose_album(album_list)
+
+    global_metadata = gather_global_data(album_name, metadata_dict)
+
+    print(global_metadata)
+    '''
+
+def search_album():
+    search_term = input("Search: ")
+
+    search = yt.search(search_term)
+
+    albums_list = []
+    album_data_list = []
+
+    for i in search:
+        if i["resultType"] == "album" and (i["category"] == "Albums" or i["category"] == "Top result"):
+
+            temp_album = "album unknown"
+            temp_artist = "artist unknown"
+            temp_year = "year unknown"
+            
+            try:
+                temp_album = i['title']
+                temp_artist = i["artists"][0]["name"]
+                temp_year = i['year']
+
+            except:
+                pass
+            
+            albums_list.append(f'{temp_album}, {temp_artist}, {temp_year}')
+            album_data_list.append(i)
+    
+    album_selected = select(albums_list, "Albums")
+
+    album_data = album_data_list[album_selected]
+
+    return album_data
+
+def download_cover(album_data: str):
+    try:
+        num_imgs = len(album_data['thumbnails'])
+        filename = temp_dir + "/" + "folder.jpg"
+        urllib.request.urlretrieve(
+            album_data['thumbnails'][num_imgs - 1]['url'], filename)
+    except:
+        print("Failed to download album cover.")
+
+def get_album_metadata(album_data : str):
+
+    print(album_data)
+
+    data = yt.get_album(album_data['browseId'])
+    return data
+
+    #print("fail")
+    #sys_exit(1)
+
+def download(url : str, format : str):
+    format_ids = {"opus" : "251",
+                  "ogg" : "251",
+                  "webm" : "251",
+                  "aac" : "140",
+                  "m4a" : "140",
+                  "mp4" : "140"}
+
+    if format not in format_ids:
+        sys_exit(1)
+
+    ydl_opts = {
+        'format': format_ids[format],
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+        }, {
+            'key': 'EmbedThumbnail'
+        }],
+        'outtmpl': temp_dir + '/%(playlist_index)s. %(title)s [%(id)s]'
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        if format_ids[format] == "140":
+            format = "m4a"
+
+        for song in os.listdir(temp_dir):
+            song_path = temp_dir + "/" + song
+
+            if song.endswith("]"):
+                os.rename(song_path, song_path + "." + format)
+            if song.endswith(".opus"):
+                os.rename(song_path, song_path.split(".opus")[0] + ".ogg")
+    
+    except:
+        sys_exit(1)
+
+def fetch_metadata():
+
+    metadata_dict = {}
+    album_list = {}
+
+    print("Getting metadata...")
+
+    for file in os.listdir(temp_dir):
+
+        id = parse_id(file)
+
+        data = yt.search(id)
+
+        '''
+        try:
+            print(data[0]['videoId'])
+        except:
+            print("no data found")
+        '''
+
+        try:
+            album_name = data[0]["album"]["name"]
+            if album_name in album_list:
+                album_list[album_name] += 1
+            else:
+                album_list[album_name] = 1
+        except:
+            pass
+
+        metadata_dict[id] = data
+
+    print(album_list)
+
+    return album_list, metadata_dict
+
+def choose_album(album_list: dict):
+    print_list = []
+    for i in album_list:
+        print(i)
+        print_list.append(i)
+
+    return select(print_list, "Albums")
+    
+def select(inputlist : list, selectiontype: str):
+    for j, name in enumerate(inputlist):
+        print(f"[{j + 1}] {name}")
+
+    while (True):
+        selection = input(f"Make a selection of {selectiontype} [1-{len(inputlist)}]: ")
+
+        if selection.isdigit():
+            if int(selection) in range(1, len(inputlist) + 1):
+                break
+
+    selection = int(selection) - 1
+
+    print("Selection made: " + inputlist[selection])
+    return selection
+
+def gather_global_data(album_name: str, metadata_dict: dict):
+    year_list = []
+    artists_list = []
+
+    album_data = ""
+
+    for i in metadata_dict:
+        data = metadata_dict[i]
+
+        try:
+            if data[0]["album"]["name"] == album_name:
+                album_data = yt.get_album(data[0]['album']['id'])
+                print(data[0]['album']['id'])
+
+                album_year = album_data['year']
+                if album_year not in year_list:
+                    year_list.append(album_year)
+
+                artist_name = ""
+                for j in range(0, len(data[0]["artists"])-1):
+                    artist_name += data[0]["artists"][j]["name"] + ", "
+                artist_name += data[0]["artists"][len(data[0]["artists"])-1]["name"]
+
+                if artist_name not in artists_list:
+                    artists_list.append(artist_name)
+        except:
+            pass
+
+    year = select(year_list)
+    artist = select(artists_list)
+
+    return {"album_name" : album_name,
+            "album_year" : year,
+            "album_artist" : artist}
+
+def apply_metadata(metadata_dict):
+    pass
+
+def parse_id(filename: str):
+    return filename.split("[")[1].split("]")[0]
+
+def validate_link(link: str):
+    testlink = ""
+
+    if "http://" in link:
+        testlink += "https://" + link[7:]
+    elif "https://" not in link:
+        testlink += "https://" + link
+    else:
+        testlink += link
+
+    if "playlist" in link:
+        mode = "album"
+    else:
+        mode = "song"
+
+    if validators.url(testlink) and "youtu" in testlink:
+        if "&feature=share" in testlink:
+            testlink = testlink.split("&feature=share")[0]
+        link = testlink
+    else:
+        return False, mode, link
+
+    return True, mode, link
+
+def sys_exit(code: int):
+    '''
+    for file in os.listdir(temp_dir):
+        os.remove(temp_dir + "/" + file)
+
+    os.rmdir(temp_dir)
+    '''
+
+    sys.exit(code)
+
+'''
+
+
+yt = YTMusic("oauth.json")
 
 ver = "b0.3"
 
@@ -56,7 +340,7 @@ def toValidFileName(input: str):
 
 
 def help_message():
-    print('''
+    print(
 Welcome to yta-dlp beta 0.3!
     
 To run, you can simply execute `python3 yta-dlp.py`.
@@ -65,7 +349,7 @@ You must supply a playlist link to an album from youtube music.
 
 Example Use:
 `python3 yta-dlp.py https://music.youtube.com/playlist?list=OLAK5uy_n0vSV9smWbw8O4q_rHkjWWoE5yshlPJU4`
-''')
+)
     sys_exit()
 
 mode = "stream"
@@ -98,7 +382,7 @@ if len(sys.argv) > 1:
 else:
     help_message()
 
-ytdlpcommand = ["yt-dlp", "--extract-audio", "-o", temp_dir + "/%(playlist_index)s. %(title)s [%(id)s].ogg", link]
+ytdlpcommand = ["yt-dlp", "--extract-audio", "--embed-thumbnail", "-o", temp_dir + "/%(playlist_index)s. %(title)s [%(id)s].ogg", link]
 
 #print(ytdlpcommand)
 subprocess.run(ytdlpcommand)
@@ -234,3 +518,7 @@ for j in os.listdir(destination):
     fileopen.save()
 
 sys_exit()
+'''
+
+if __name__ == "__main__":
+    main()
