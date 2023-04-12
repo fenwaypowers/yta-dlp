@@ -41,7 +41,6 @@ def main():
 
     extension = args.extension
 
-
     album_data = search_album()
 
     download_cover(album_data)
@@ -69,7 +68,7 @@ def search_album():
         album_data_list = []
 
         for i in search:
-            if i["resultType"] == "album" and (i["category"] == "Albums" or i["category"] == "Top result"):
+            if i["resultType"] == "album" and i["category"] == "Albums":
 
                 temp_album = "album unknown"
                 temp_artist = "artist unknown"
