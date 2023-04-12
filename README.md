@@ -26,6 +26,8 @@ Example Use:
 * Albums that are by "Various Artists" won't have correct metadata generated. The individual artists won't appear in the `artist` metadata field. This is because the only data I was able to get from ytmusicapi had "Various Artists" as the only artist.
 
 ## Future Features
+I most likely won't continue to work on this program, considering that [RaduTek](https://github.com/RaduTek) has made [YTMusicDL](https://github.com/RaduTek/YTMusicDL). The features detailed below are already in their program. Therefore, I will likely only contribute to [YTMusicDL](https://github.com/RaduTek/YTMusicDL) from now on. 
+
 * Support for other audio formats such as AAC
 * Support for downloading individual songs with metadata
 * Support for "Various Artists" albums
