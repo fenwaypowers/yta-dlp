@@ -106,7 +106,6 @@ def download_cover(album_data: str):
         logging.info("Failed to download album cover.")
 
 def get_album_metadata(album_data : str):
-
     data = yt.get_album(album_data['browseId'])
     return data
 
