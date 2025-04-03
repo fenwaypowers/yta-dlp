@@ -1,5 +1,6 @@
 import urllib.request
 import os
+import re
 import shutil
 import argparse
 import logging
@@ -29,6 +30,7 @@ def main():
     parser = argparse.ArgumentParser(description='Download Albums from Youtube with metadata.')
     parser.add_argument('-o', '--output-path', help="specify a path where you want your files to go.", default="")
     parser.add_argument('-e', '--extension', help="specify the output extension of the files.", choices = ["ogg", "opus"], default="ogg")
+    parser.add_argument('-u', '--url', help="specify a URL to download the album directly.", default="")
 
     args = parser.parse_args()
 
@@ -41,19 +43,29 @@ def main():
 
     extension = args.extension
 
+    '''
+    if args.url:
+        album_data = yt.get_playlist(extract_album_id(args.url))
+    else:
+        album_data = search_album()
+    '''
     album_data = search_album()
-
+    print(album_data)
     download_cover(album_data)
-
     album_metadata = get_album_metadata(album_data)
-
     link = album_metadata['audioPlaylistId']
-
     download(link, format)
-
     apply_metadata(album_metadata)
-
     finish(album_metadata)
+
+def extract_album_id(url):
+    match = re.search(r"list=([\w-]+)", url)
+    if match:
+        print("extrated id:", match.group(1))
+        return match.group(1)
+    else:
+        logging.info("Invalid URL provided.")
+        sys_exit(1)
 
 def search_album():
     while(True):
@@ -80,7 +92,6 @@ def search_album():
                     temp_type = i["artists"][0]["name"]
                     temp_artist = i["artists"][1]["name"]
                     temp_year = i['year']
-
                 except:
                     pass
                 
